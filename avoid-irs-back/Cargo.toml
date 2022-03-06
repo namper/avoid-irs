@@ -2,8 +2,15 @@
 name = "avoid-irs-back"
 version = "0.1.0"
 edition = "2021"
-
+authors = ["Misho <http://github.com/nnamper>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-rocket = "0.5.0-rc.1"
+[dependencies.rocket]
+version = "0.5.0-rc.1"
+features = ["json"]
+
+[dependencies.serde]
+version = "1.0.136"
+features = ["derive"]
+
+
