@@ -5,13 +5,13 @@ use rocket::{
 
 use reqwest::{
     self,
-}
+};
 
-const URL: string = "https://nbg.gov.ge/gw/api/ct/monetarypolicy/currencies/";
+const URL: &str = "https://nbg.gov.ge/gw/api/ct/monetarypolicy/currencies/";
 
 #[derive(Deserialize)]
 struct IncomeIn{
-    currency: std::Option<String>,
+    currency: String,
     amount: f64,
 }
 
@@ -20,36 +20,44 @@ struct IncomeOut{
     value: f64
 }
 
-#[derive(Deserialize)]         
-struct RSCurrencyRateResponse{
-    currencies: str:Vect<{validFromDate: String, code: String}
+#[derive(Deserialize)]
+struct RsCurrencyResponse{
+    validFromDate: String,
+    code: String,
+    rate: f64,
 }
 
-fn get_currency_rate(date: str) -> f64:
+#[derive(Deserialize)]         
+struct RSCurrencyRateResponse{
+    currencies: std::vec::Vec<RsCurrencyResponse>
+}
+
+
+fn get_currency_rate(date: String) -> std::option::Option<f64>{
     // get official curreny on given date
     // @TODO: Convert date from Local to UTC
 
     let client = reqwest::Client::new();
-    let ge_rs_response: std::Vec<RSCurrencyRateResponse> = client.get(URL)
-            .query(&[("currencies", "USD"), ("date", date_str)])
+    let ge_rs_response: std::vec::Vec<RSCurrencyRateResponse> = client.get(URL)
+            .query(&[("currencies", "USD"), ("date", &date)])
             .send()?
             .json()?;
     
     
-    return validate(ge_rs_response.first(), date)
+    return validate(ge_rs_response.first(), date);
+}
 
+fn validate(rs_currency_rate_response: std::option::Option<RsCurrencyResponse>, date: String) -> std::option::Option<f64>{
+    // validate response so we don't use incorrect date, currenyc & more for conversion
+    // ensure that conversion is done correctly and don't blindly trust goverment api 
+    match rs_currency_rate_response {
+        Some(currency_response) => {
+            assert_eq!(currency_response.code, "USD"); 
+            return Some(currency_response.rate);
 
-
-fn validate(rs_currency_rate_response: RSCurrencyRateResponse, date: str) -> f64:
-    // validate response so we don't use incorrect date for conversion
-    currency = rs_currency_rate_response.curencies.first();
-
-    assert_eq(currency.validFromDate, date)
-    assert_eq(currency.code, "USD")
- 
-    return currency
-
-
+        }
+        None => return None;
+    }
 
 #[rocket::post("/api/monthly_tax", format = "json",  data="<income>")]
 fn monthly_tax(income: Json<IncomeIn>) -> Json<IncomeOut>{
