@@ -11,6 +11,7 @@ const URL: &str = "https://nbg.gov.ge/gw/api/ct/monetarypolicy/currencies/";
 
 #[derive(Deserialize)]
 struct IncomeIn{
+    date: String,
     currency: String,
     amount: f64,
 }
@@ -22,7 +23,6 @@ struct IncomeOut{
 
 #[derive(Deserialize)]
 struct RsCurrencyResponse{
-    validFromDate: String,
     code: String,
     rate: f64,
 }
@@ -33,36 +33,59 @@ struct RSCurrencyRateResponse{
 }
 
 
-fn get_currency_rate(date: String) -> std::option::Option<f64>{
+async fn get_currency_rate(date: String) -> f64{
     // get official curreny on given date
     // @TODO: Convert date from Local to UTC
 
     let client = reqwest::Client::new();
-    let ge_rs_response: std::vec::Vec<RSCurrencyRateResponse> = client.get(URL)
+    let response = client.get(URL)
             .query(&[("currencies", "USD"), ("date", &date)])
-            .send()?
-            .json()?;
+            .send()
+            .await
+            .unwrap();
     
     
-    return validate(ge_rs_response.first(), date);
+    match response.status(){
+        reqwest::StatusCode::OK => {
+            match response.json::<std::vec::Vec<RSCurrencyRateResponse>>().await{
+                Ok(parsed_resp) => return validate(parsed_resp.first()),
+                Err(error) => panic!("Error while parsing: {:?}", error)
+            }
+        }
+        other => {
+            panic!("Uh oh! Something unexpected happened: {:?}", other);
+        }
+    }
 }
 
-fn validate(rs_currency_rate_response: std::option::Option<RsCurrencyResponse>, date: String) -> std::option::Option<f64>{
+fn validate(rs_currency_rate_response: std::option::Option<&RSCurrencyRateResponse>) -> f64{
     // validate response so we don't use incorrect date, currenyc & more for conversion
     // ensure that conversion is done correctly and don't blindly trust goverment api 
     match rs_currency_rate_response {
         Some(currency_response) => {
-            assert_eq!(currency_response.code, "USD"); 
-            return Some(currency_response.rate);
+            let currency = currency_response.currencies.first();
+
+            match currency{
+                Some(c) => {
+                    assert_eq!(c.code, "USD"); 
+                    return c.rate;
+                }
+                _ => panic!("Empty data")
+            }
 
         }
-        None => return None;
+        _ => panic!("Empty response")
     }
+}
 
 #[rocket::post("/api/monthly_tax", format = "json",  data="<income>")]
-fn monthly_tax(income: Json<IncomeIn>) -> Json<IncomeOut>{
+async fn monthly_tax(income: Json<IncomeIn>) -> Json<IncomeOut>{
     // montlhy tax computation
-    return Json(IncomeOut { value : income.amount });
+
+    let amount = income.amount.clone();
+    let currency_rate = get_currency_rate(income.date.clone()).await;
+    
+    return Json(IncomeOut { value : amount * currency_rate });
 }
 
 
@@ -77,4 +100,3 @@ async fn main(){
        drop(err); // Drop initiates Rocket-formatted panic
     }
 }
-
