@@ -1,15 +1,19 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import TaxView from '../views/TaxView.vue'
+import Vue from "vue";
+import VueRouter, { RouteConfig } from "vue-router";
+import IncometTab from "@/components/IncometTab.vue";
 
-const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [
-    {
-      path: '/',
-      name: 'home',
-      component: TaxView 
-    }
-  ]
-})
+Vue.use(VueRouter);
 
-export default router
+const routes: Array<RouteConfig> = [
+  {
+    path: "/",
+    name: "Home",
+    component: IncometTab,
+  },
+];
+
+const router = new VueRouter({
+  routes,
+});
+
+export default router;
