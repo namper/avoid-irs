@@ -84,7 +84,7 @@ async fn monthly_tax(income: Json<IncomeIn>) -> Json<IncomeOut>{
 
     let amount = income.amount.clone();
     let currency_rate = get_currency_rate(income.date.clone()).await;
-    
+
     return Json(IncomeOut { value : amount * currency_rate });
 }
 
