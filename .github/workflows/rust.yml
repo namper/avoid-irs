@@ -8,17 +8,16 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  
+defaults:
+ run:
+  working-directory: ./avoid-irs-back
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
-    - name: Find backend directory
-    - run: |
-        cd avoid-irs-back
     - name: Build
       run: cargo build --verbose
     - name: Run tests
