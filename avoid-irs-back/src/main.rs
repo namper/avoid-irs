@@ -7,6 +7,9 @@ use reqwest::{
     self,
 };
 
+use std::vec::Vec;
+use std::option::Option;
+
 const URL: &str = "https://nbg.gov.ge/gw/api/ct/monetarypolicy/currencies/";
 
 #[derive(Deserialize)]
@@ -29,11 +32,11 @@ struct RsCurrencyResponse{
 
 #[derive(Deserialize)]         
 struct RSCurrencyRateResponse{
-    currencies: std::vec::Vec<RsCurrencyResponse>
+    currencies: Vec<RsCurrencyResponse>
 }
 
 
-async fn get_currency_rate(date: String) -> f64{
+async fn get_currency_rate(date: String) -> Option<f64>{
     // get official curreny on given date
     // @TODO: Convert date from Local to UTC
 
@@ -47,34 +50,32 @@ async fn get_currency_rate(date: String) -> f64{
     
     match response.status(){
         reqwest::StatusCode::OK => {
-            match response.json::<std::vec::Vec<RSCurrencyRateResponse>>().await{
-                Ok(parsed_resp) => return validate(parsed_resp.first()),
-                Err(error) => panic!("Error while parsing: {:?}", error)
+            match response.json::<Vec<RSCurrencyRateResponse>>().await{
+                Ok(responses) => {
+                    match responses.first(){
+                        Some(response) => {
+                            return validate_response_currency(response);
+                        },
+                        _ => None
+                    }
+                },
+                Err(_) => None
             }
         }
-        other => {
-            panic!("Uh oh! Something unexpected happened: {:?}", other);
-        }
+        _ => None 
     }
 }
 
-fn validate(rs_currency_rate_response: std::option::Option<&RSCurrencyRateResponse>) -> f64{
-    // validate response so we don't use incorrect date, currenyc & more for conversion
-    // ensure that conversion is done correctly and don't blindly trust goverment api 
-    match rs_currency_rate_response {
-        Some(currency_response) => {
-            let currency = currency_response.currencies.first();
-
-            match currency{
-                Some(c) => {
-                    assert_eq!(c.code, "USD"); 
-                    return c.rate;
-                }
-                _ => panic!("Empty data")
-            }
-
-        }
-        _ => panic!("Empty response")
+fn validate_response_currency(response: &RSCurrencyRateResponse) -> Option<f64>{
+   /*  validate response so we don't use incorrect date, curreny & more for conversion
+    *  ensure that conversion is done correctly and don't blindly trust goverment api
+    */
+    match response.currencies.first(){
+        Some(c) => {
+            if c.code != "USD" {return None};
+            return Some(c.rate);
+        },
+        _ => None
     }
 }
 
@@ -83,9 +84,10 @@ async fn monthly_tax(income: Json<IncomeIn>) -> Json<IncomeOut>{
     // montlhy tax computation
 
     let amount = income.amount.clone();
-    let currency_rate = get_currency_rate(income.date.clone()).await;
-
-    return Json(IncomeOut { value : amount * currency_rate });
+    match get_currency_rate(income.date.clone()).await{
+        Some(currency_rate) => Json(IncomeOut { value : amount * currency_rate }),
+        _ => Json(IncomeOut { value : 0.0}) 
+    }
 }
 
 
