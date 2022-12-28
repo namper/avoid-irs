@@ -3,6 +3,10 @@ use rocket::{
     serde::{json::Json, Deserialize, Serialize},
 };
 
+use rocket_cors::{AllowedOrigins, CorsOptions};
+
+
+
 use reqwest::{
     self,
 };
@@ -93,8 +97,22 @@ async fn monthly_tax(income: Json<IncomeIn>) -> Json<IncomeOut>{
 
 #[rocket::main]
 async fn main(){
+
+    let cors = CorsOptions::default()
+        .allowed_origins(AllowedOrigins::all())
+        .allowed_methods(
+            vec![Method::Get, Method::Post, Method::Patch]
+                .into_iter()
+                .map(From::from)
+                .collect(),
+        )
+        .allow_credentials(true)
+        .to_cors()?;
+
+
     if let Err(err) = rocket::build()
         .mount("/", rocket::routes![monthly_tax])
+        .attach()
         .launch()
         .await
     {
